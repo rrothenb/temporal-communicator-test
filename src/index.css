@@ -1,0 +1,113 @@
+#body {
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+    background-color: black;
+    color: white;
+}
+
+.noisey {
+    background-image: url("https://media.giphy.com/media/kjbutNOsKX1Ty/giphy.gif");
+}
+
+.rickey {
+    background-image: url("http://lh4.googleusercontent.com/-jnAY7xvXB8g/AAAAAAAAAAI/AAAAAAAAADo/acDi6utgvjM/photo.jpg?sz=257");
+}
+
+.grid {
+    background-color: rgb(0,0,0);
+}
+
+.video-container {
+    width: 475px;
+    display: inline-block;
+}
+
+.noisey {
+    background: url("http://us.vp9.tv/info/wp-content/themes/vision/lib/player/projekktor/themes/maccaco/noise.gif");
+}
+
+#root .ui.teensy.statistic>.label,  #root .ui.teensy.statistic>.value {
+    font-size: 0.8rem!important;
+    color: white;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+#root .ui.statistic {
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+
+#root .ui.inverted.segment {
+    background-color: rgb(0,0,0);
+}
+
+#root, #root .ui.segment {
+    background-color: rgb(0,0,0);
+    font-size: 10px;
+}
+
+#root .grid.celled > .column,  #root .grid.celled {
+    border-color: #56fffb;
+    border-style: solid;
+    border-width: 2px;
+}
+
+#root .grid.celled > .column.tight-sides {
+    padding-left: 0px;
+    padding-right: 0px;
+}
+
+#root .ui.label {
+    background-color: inherit;
+    color: inherit;
+    border-width: 2px;
+    border-color: dimgrey;
+}
+
+#root .ui.label p {
+    text-align: center;
+}
+
+#root .grid .column.on {
+    background-color: green;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#root .grid .column.off {
+    color: grey;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+
+#root .grid .column.starting {
+    animation: blinker 1.7s cubic-bezier(.5, 0, 1, 1) infinite alternate;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@keyframes blinker { to { opacity: 0; } }
+
+#root .ui.grid:not(celled)>.column {
+    padding-top: 0px;
+    padding-bottom: 0px;
+}
+
+#root .ui.top.attached.label {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+#root .ui.divider {
+    font-size: inherit;
+    text-transform: inherit;
+}
+
+#root .ui.grid>.row {
+    padding: 0px;
+}
