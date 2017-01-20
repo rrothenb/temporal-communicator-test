@@ -32,6 +32,7 @@ const schedules = {
     strength: {
         phase: phases.link,
         values: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85],
+        threshold: 75,
         deviation: () => (100 - getCurrentValue(schedules.stability))/10,
         min: .01,
         max: 99.99
@@ -39,6 +40,7 @@ const schedules = {
     bandwidth: {
         phase: phases.link,
         values: [10, 20, 30, 40, 50, 55, 60, 65, 70],
+        threshold: 65,
         deviation: () => (100 - getCurrentValue(schedules.stability))/5,
         min: .01,
         max: 99.99
@@ -60,6 +62,7 @@ const schedules = {
     stability: {
         phase: phases.link,
         values: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 98],
+        threshold: 85,
         deviation: () => 5,
         min: .01,
         max: 99.99
@@ -91,6 +94,10 @@ function isBefore(phase) {
 
 function isAfter(phase) {
     return getElapsedTime() >= phase.next.start;
+}
+
+function isDuring(phase) {
+    return !(isBefore(phase) || isAfter(phase));
 }
 
 function getCurrentValue(schedule) {
@@ -226,7 +233,7 @@ class Metric extends Component {
     }
 
     tick() {
-        this.setState({value: this.props.func()});
+        this.setState({value: getCurrentValue(this.props.schedule)});
     }
 
     componentWillUnmount() {
@@ -235,15 +242,28 @@ class Metric extends Component {
 
     render() {
         let value = '-.--';
-        if (!isBefore(phases)) {
+        if (!isBefore(phases.monitor)) {
             value = this.state.value.toFixed(2);
+        }
+        let state = 'metric-off';
+        if (this.props.schedule.threshold && this.state.value > this.props.schedule.threshold) {
+            state = 'metric-on';
+        }
+        else if (!this.props.schedule.threshold && !isBefore(this.props.schedule.phase)) {
+            state = 'metric-on';
+        }
+        else if (isAfter(this.props.schedule.phase) && this.props.schedule.threshold && this.state.value < this.props.schedule.threshold) {
+            state = 'metric-warn';
+        }
+        else if (isDuring(this.props.schedule.phase)) {
+            state = 'metric-starting';
         }
         return (
             <Grid.Row>
                 <Grid.Column textAlign="left">
                     {this.props.title}
                 </Grid.Column>
-                <Grid.Column textAlign="right">
+                <Grid.Column textAlign="right" className={state}>
                     {value}%
                 </Grid.Column>
             </Grid.Row>
@@ -524,11 +544,11 @@ class Present extends Component {
                             </Grid>
                             <Divider inverted horizontal>Q<sub>link</sub></Divider>
                             <Grid columns="two">
-                                <Metric func={() => getCurrentValue(schedules.strength)} title="Str" updateInterval={199}/>
-                                <Metric func={() => getCurrentValue(schedules.bandwidth)} title="Bw" updateInterval={197}/>
-                                <Metric func={() => getCurrentValue(schedules.shift)} title="Shift" updateInterval={193}/>
-                                <Metric func={() => getCurrentValue(schedules.compression)} title="Cmp" updateInterval={191}/>
-                                <Metric func={() => getCurrentValue(schedules.stability)} title="Stbl" updateInterval={181}/>
+                                <Metric schedule={schedules.strength} title="Str" updateInterval={199}/>
+                                <Metric schedule={schedules.bandwidth} title="Bw" updateInterval={197}/>
+                                <Metric schedule={schedules.shift} title="Shift" updateInterval={193}/>
+                                <Metric schedule={schedules.compression} title="Cmp" updateInterval={191}/>
+                                <Metric schedule={schedules.stability} title="Stbl" updateInterval={181}/>
                             </Grid>
                         </Segment>
                     </Grid.Column>

@@ -91,6 +91,23 @@
     justify-content: center;
 }
 
+#root .grid .column.metric-on {
+    color: #56fffb;
+}
+
+#root .grid .column.metric-off {
+    color: grey;
+}
+
+
+#root .grid .column.metric-starting {
+    color: white;
+}
+
+#root .grid .column.metric-warn {
+    color: yellow;
+}
+
 @keyframes blinker { to { opacity: 0; } }
 
 #root .ui.grid:not(celled)>.column {
