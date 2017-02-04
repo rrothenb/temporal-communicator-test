@@ -409,7 +409,7 @@ class Radar extends Component {
         this.dataPoints[1] = getCurrentValue(schedules.strength);
         this.dataPoints[2] = getCurrentValue(schedules.bandwidth);
         let compression = getCurrentValue(schedules.compression);
-        this.dataPoints[3] = compression ? 100 - compression : 0.0;
+        this.dataPoints[3] = isBefore(phases.link) ? 0 : 100 - compression;
         console.log(this.dataPoints);
         this.graph.update();
     }
