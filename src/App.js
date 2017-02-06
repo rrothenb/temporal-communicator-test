@@ -3,22 +3,22 @@ import { Segment, Container, Statistic, Progress, Divider, Grid, Label } from 's
 
 const phases = {
     monitor: {
-        start: 5
+        start: 3
     },
     accelerate: {
-        start: 10
+        start: 6
     },
     entangle: {
-        start: 15
+        start: 9
     },
     search: {
-        start:20
+        start:12
     },
     link: {
-        start:32
+        start:24
     },
     connected: {
-        start: 50
+        start: 42
     }
 };
 
@@ -79,6 +79,10 @@ const schedules = {
 let start = null;
 let audioCtx = audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let frequency = null;
+let noiseLevel = null;
+let ringModulatorCarrierLevel = null;
+let signalGain = null;
+let analyserNode = null;
 
 
 function getElapsedTime() {
@@ -138,6 +142,35 @@ function gaussian(mean, schedule) {
         return Math.min(Math.max(z/10,min),max);
     }
     return Math.min(Math.max(mean + deviation*z,min),max);
+}
+
+class ElapsedTime extends Component {
+    componentDidMount() {
+        this.timerID = setInterval(
+            () => this.tick(),
+            this.props.updateInterval
+        );
+    }
+
+    tick() {
+        this.setState({time: getElapsedTime()});
+    }
+
+    componentWillUnmount() {
+        clearInterval(this.timerID);
+    }
+
+    render() {
+        let time = '-:--';
+        if (this.state) {
+            const seconds = Math.floor(this.state.time)%60;
+            const minutes = Math.floor(this.state.time/60);
+            time = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        }
+        return (
+            <h1>{time}</h1>
+        )
+    }
 }
 
 class Clock extends Component {
@@ -294,32 +327,62 @@ class RemoteChat extends Component {
             session.connected(function(session) {
                 console.log(session);
                 session.video.width = 475;
-                session.video.className = "noisey";
-                session.video.style.webkitFilter = 'opacity(0%)';
+                if (myThis.props.caller) {
+                    session.video.className = "noisey";
+                    session.video.style.webkitFilter = 'opacity(0%)';
+                }
                 myThis.video = session.video;
                 video.appendChild(session.video);
                 console.log(session.pc.getRemoteStreams());
-                let sourceNode = audioCtx.createMediaStreamSource(session.pc.getRemoteStreams()[0]);
-                let gainNode = audioCtx.createGain();
-                let ringModulatorCarrier = audioCtx.createOscillator();
-                ringModulatorCarrier.frequency.value = 50;
-                let ringModulatorCarrierGain = audioCtx.createGain();
-                ringModulatorCarrierGain.gain.value = 5;
-                ringModulatorCarrier.connect(ringModulatorCarrierGain);
-                ringModulatorCarrierGain.connect(gainNode.gain);
-                ringModulatorCarrier.start();
-                // gainNode.gain.value = 10;
-                sourceNode.connect(gainNode);
-                let biquadFilter = audioCtx.createBiquadFilter();
-                frequency = biquadFilter.frequency
-                biquadFilter.type = "lowpass";
-                biquadFilter.frequency.value = 0;
-                gainNode.connect(biquadFilter);
-                console.log(audioCtx.destination.numberOfInputs);
-                audioCtx.destination.disconnect();
-                console.log(audioCtx.destination.numberOfInputs);
-                biquadFilter.connect(audioCtx.destination);
-                console.log(audioCtx.destination.numberOfInputs);
+                if (myThis.props.caller) {
+                    analyserNode = audioCtx.createAnalyser();
+                    analyserNode.fftSize = 128;
+                    analyserNode.connect(audioCtx.destination);
+                    let sourceNode = audioCtx.createMediaStreamSource(session.pc.getRemoteStreams()[0]);
+                    let gainNode = audioCtx.createGain();
+                    let ringModulatorCarrier = audioCtx.createOscillator();
+                    ringModulatorCarrier.frequency.value = 50;
+                    let ringModulatorCarrierGain = audioCtx.createGain();
+                    ringModulatorCarrierLevel = ringModulatorCarrierGain.gain;
+                    ringModulatorCarrier.connect(ringModulatorCarrierGain);
+                    ringModulatorCarrierGain.connect(gainNode.gain);
+                    ringModulatorCarrier.start();
+                    sourceNode.connect(gainNode);
+                    let biquadFilter = audioCtx.createBiquadFilter();
+                    frequency = biquadFilter.frequency
+                    biquadFilter.type = "lowpass";
+                    biquadFilter.frequency.value = 0;
+                    gainNode.connect(biquadFilter);
+                    let signalGainNode = audioCtx.createGain();
+                    signalGain = signalGainNode.gain;
+                    biquadFilter.connect(signalGainNode);
+                    signalGainNode.connect(analyserNode);
+
+                    const channels = 2;
+                    const frameCount = audioCtx.sampleRate * 2.0;
+                    const noiseBuffer = audioCtx.createBuffer(channels, frameCount, audioCtx.sampleRate);
+                    for (var channel = 0; channel < channels; channel++) {
+                        var nowBuffering = noiseBuffer.getChannelData(channel);
+                        for (var i = 0; i < frameCount; i++) {
+                            nowBuffering[i] = Math.random() * 2 - 1;
+                        }
+                    }
+                    var noiseNode = audioCtx.createBufferSource();
+                    noiseNode.loop = true;
+                    noiseNode.buffer = noiseBuffer;
+                    let noiseFilter = audioCtx.createBiquadFilter();
+                    noiseFilter.type = "lowpass";
+                    noiseFilter.frequency.value = 5000;
+                    let noiseGain = audioCtx.createGain();
+                    noiseLevel = noiseGain.gain;
+                    noiseGain.gain.value = 0;
+                    noiseFilter.gain.value = 0;
+                    noiseNode.connect(noiseFilter);
+                    noiseFilter.connect(noiseGain);
+                    noiseGain.connect(analyserNode);
+                    noiseNode.start();
+                }
+
             });
             session.ended(function(session) {
                 video.innerHTML='';
@@ -342,14 +405,25 @@ class RemoteChat extends Component {
         if (!this.video) {
             return;
         }
-        const opacity = getCurrentValue(schedules.strength);
-        const blur = 5 - getCurrentValue(schedules.bandwidth)/17;
-        const greyscale = 100 - getCurrentValue(schedules.bandwidth)/2;
-        const hueRotate = getCurrentValue(schedules.shift);
-        const contrast = 10 * getCurrentValue(schedules.compression);
-        this.video.style.WebkitFilter = `opacity(${opacity}%) contrast(${contrast}%) hue-rotate(${hueRotate}deg) grayscale(${greyscale}%) blur(${blur}px)`;
-        if (frequency) {
-            frequency.value = getCurrentValue(schedules.bandwidth) * 20;
+        if (this.props.caller) {
+            const opacity = getCurrentValue(schedules.strength);
+            const blur = 5 - getCurrentValue(schedules.bandwidth)/17;
+            const greyscale = 100 - getCurrentValue(schedules.bandwidth)/2;
+            const hueRotate = getCurrentValue(schedules.shift);
+            const contrast = 10 * getCurrentValue(schedules.compression);
+            this.video.style.WebkitFilter = `opacity(${opacity}%) contrast(${contrast}%) hue-rotate(${hueRotate}deg) grayscale(${greyscale}%) blur(${blur}px)`;
+            if (frequency) {
+                frequency.value = getCurrentValue(schedules.bandwidth) * 20;
+            }
+            if (noiseLevel) {
+                noiseLevel.value = (100 - getCurrentValue(schedules.strength))/250;
+            }
+            if (ringModulatorCarrierLevel) {
+                ringModulatorCarrierLevel.value = getCurrentValue(schedules.shift)*getCurrentValue(schedules.shift)/500;
+            }
+            if (signalGain) {
+                signalGain.value = getCurrentValue(schedules.strength)/250;
+            }
         }
     }
 
@@ -429,6 +503,52 @@ class Radar extends Component {
     }
 }
 
+class AudioHistogram extends Component {
+    componentDidMount() {
+        let ctx = document.getElementById('audioHistogram');
+        this.frequencyData = new Float32Array(64);
+        let dataConfig = {
+            datasets: [
+                {
+                    data: this.frequencyData
+                },
+            ]
+        };
+        this.graph = new Chart(ctx, {
+            type: 'bar',
+            data: dataConfig,
+            options: {
+            }
+        });
+
+        this.timerID = setInterval(
+            () => this.tick(),
+            this.props.updateInterval
+        );
+    }
+
+    tick() {
+        if (analyserNode) {
+            analyserNode.getFloatFrequencyData(this.frequencyData);
+            this.graph.update();
+        }
+    }
+
+    componentWillUnmount() {
+        clearInterval(this.timerID);
+    }
+
+    render() {
+        return(
+            <Segment inverted>
+                <Label attached='top'><p>Spectral Analysis</p></Label>
+                <Divider hidden section/>
+                <canvas id="audioHistogram"></canvas>
+            </Segment>
+        );
+    }
+}
+
 class Phase extends Component {
     constructor(props) {
         super(props);
@@ -481,6 +601,7 @@ class Present extends Component {
                     <Grid.Column width={3}>
                     </Grid.Column>
                     <Grid.Column width={5}>
+                        <AudioHistogram updateInterval={499}/>
                     </Grid.Column>
                     <Grid.Column width={5}/>
                     <Grid.Column width={2}>
@@ -559,9 +680,10 @@ class Present extends Component {
                         </Segment>
                     </Grid.Column>
                     <Grid.Column width={2}>
+                        <ElapsedTime updateInterval={173}/>
                     </Grid.Column>
                     <Grid.Column width={4}>
-                        <Clock updateInterval={193}/>
+                        <Clock updateInterval={179}/>
                     </Grid.Column>
                     <Phase name="Monitors" phase={phases.monitor}/>
                     <Phase name="Accelerator" phase={phases.accelerate}/>

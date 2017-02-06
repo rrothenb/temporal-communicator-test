@@ -83,6 +83,12 @@
     justify-content: center;
 }
 
+#root .grid .column h1 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 12px;
+}
 
 #root .grid .column.starting {
     animation: blinker 1.7s cubic-bezier(.5, 0, 1, 1) infinite alternate;
@@ -92,7 +98,7 @@
 }
 
 #root .grid .column.metric-on {
-    color: #56fffb;
+    color: lightgreen;
 }
 
 #root .grid .column.metric-off {
@@ -105,7 +111,7 @@
 }
 
 #root .grid .column.metric-warn {
-    color: yellow;
+    color: red;
 }
 
 @keyframes blinker { to { opacity: 0; } }
