@@ -336,7 +336,7 @@ class RemoteChat extends Component {
                 console.log(session.pc.getRemoteStreams());
                 if (myThis.props.caller) {
                     analyserNode = audioCtx.createAnalyser();
-                    analyserNode.fftSize = 128;
+                    analyserNode.fftSize = 256;
                     analyserNode.connect(audioCtx.destination);
                     let sourceNode = audioCtx.createMediaStreamSource(session.pc.getRemoteStreams()[0]);
                     let gainNode = audioCtx.createGain();
@@ -484,7 +484,6 @@ class Radar extends Component {
         this.dataPoints[2] = getCurrentValue(schedules.bandwidth);
         let compression = getCurrentValue(schedules.compression);
         this.dataPoints[3] = isBefore(phases.link) ? 0 : 100 - compression;
-        console.log(this.dataPoints);
         this.graph.update();
     }
 
@@ -506,11 +505,14 @@ class Radar extends Component {
 class AudioHistogram extends Component {
     componentDidMount() {
         let ctx = document.getElementById('audioHistogram');
-        this.frequencyData = new Float32Array(64);
+        this.data = new Array(128);
         let dataConfig = {
+            labels: new Array(32),
             datasets: [
                 {
-                    data: this.frequencyData
+                    backgroundColor: "#fff",
+                    borderColor: "#fff",
+                    data: this.data
                 },
             ]
         };
@@ -518,6 +520,17 @@ class AudioHistogram extends Component {
             type: 'bar',
             data: dataConfig,
             options: {
+                legend: {display: false},
+                scales: {
+                    xAxes: [{
+                        display: false
+                    }],
+                    yAxes: [{
+                        display: false,
+                        min: 0,
+                        max: 100
+                    }]
+                }
             }
         });
 
@@ -529,7 +542,14 @@ class AudioHistogram extends Component {
 
     tick() {
         if (analyserNode) {
-            analyserNode.getFloatFrequencyData(this.frequencyData);
+            let rawData = new Float32Array(128);
+            analyserNode.getFloatFrequencyData(rawData);
+            rawData.forEach((value, i) => {
+                value = (value + 80)/(40);
+                value = value*value*100;
+                value = Math.min(Math.max(value,0),100);
+                this.data[i] = value;
+            });
             this.graph.update();
         }
     }
@@ -601,7 +621,7 @@ class Present extends Component {
                     <Grid.Column width={3}>
                     </Grid.Column>
                     <Grid.Column width={5}>
-                        <AudioHistogram updateInterval={499}/>
+                        <AudioHistogram updateInterval={211}/>
                     </Grid.Column>
                     <Grid.Column width={5}/>
                     <Grid.Column width={2}>
