@@ -6,27 +6,40 @@ const phases = {
         start: 3
     },
     accelerate: {
-        start: 6
-    },
-    entangle: {
-        start: 9
+        start: 8
     },
     search: {
-        start:12
+        start: 18
     },
     link: {
-        start:24
+        start: 30
     },
     connected: {
-        start: 42
+        start: 48
     }
 };
 
 phases.monitor.next = phases.accelerate;
-phases.accelerate.next = phases.entangle;
-phases.entangle.next = phases.search;
+phases.accelerate.next = phases.search;
 phases.search.next = phases.link;
 phases.link.next = phases.connected;
+
+const maxMassU = 3.0;
+const minMassU = 2.9;
+const maxMassD = 2.7;
+const minMassD = 2.6;
+const maxMassS = 1.8;
+const minMassS = 1.7;
+const maxMassC = 1.6;
+const minMassC = 1.5;
+const maxMassB = 1.0;
+const minMassB = 0.9;
+const maxMassT = 0.6;
+const minMassT = 0.5;
+
+function velocity(t, m) {
+    return t/(m*Math.sqrt(1+(t*t)/(m*m)));
+}
 
 const schedules = {
     strength: {
@@ -73,6 +86,109 @@ const schedules = {
         deviation: () => (100 - getCurrentValue(schedules.stability))/5,
         min: .01,
         max: 99.99
+    },
+    vDeviation: {
+        phase: phases.monitor,
+        values: [0.1, 0.1, 0.1, 0.09, 0.08, 0.07, 0.06, 0.05, 0.04, 0.03, 0.02],
+        deviation: () => 0,
+        min: 0,
+        max: 1
+    },
+    vUMin: {
+        phase: phases.accelerate,
+        values: time => velocity(time, minMassU),
+        threshold: .95,
+        deviation: () => getCurrentValue(schedules.vDeviation),
+        min: .000,
+        max: .999
+    },
+    vUMax: {
+        phase: phases.accelerate,
+        values: time => velocity(time, maxMassU),
+        threshold: .95,
+        deviation: () => getCurrentValue(schedules.vDeviation),
+        min: .000,
+        max: .999
+    },
+    vDMin: {
+        phase: phases.accelerate,
+        values: time => velocity(time, minMassD),
+        threshold: .95,
+        deviation: () => getCurrentValue(schedules.vDeviation),
+        min: .000,
+        max: .999
+    },
+    vDMax: {
+        phase: phases.accelerate,
+        values: time => velocity(time, maxMassD),
+        threshold: .95,
+        deviation: () => getCurrentValue(schedules.vDeviation),
+        min: .000,
+        max: .999
+    },
+    vSMin: {
+        phase: phases.accelerate,
+        values: time => velocity(time, minMassS),
+        threshold: .95,
+        deviation: () => getCurrentValue(schedules.vDeviation),
+        min: .000,
+        max: .999
+    },
+    vSMax: {
+        phase: phases.accelerate,
+        values: time => velocity(time, maxMassS),
+        threshold: .95,
+        deviation: () => getCurrentValue(schedules.vDeviation),
+        min: .000,
+        max: .999
+    },
+    vCMin: {
+        phase: phases.accelerate,
+        values: time => velocity(time, minMassC),
+        threshold: .95,
+        deviation: () => getCurrentValue(schedules.vDeviation),
+        min: .000,
+        max: .999
+    },
+    vCMax: {
+        phase: phases.accelerate,
+        values: time => velocity(time, maxMassC),
+        threshold: .95,
+        deviation: () => getCurrentValue(schedules.vDeviation),
+        min: .000,
+        max: .999
+    },
+    vBMin: {
+        phase: phases.accelerate,
+        values: time => velocity(time, minMassB),
+        threshold: .95,
+        deviation: () => getCurrentValue(schedules.vDeviation),
+        min: .000,
+        max: .999
+    },
+    vBMax: {
+        phase: phases.accelerate,
+        values: time => velocity(time, maxMassB),
+        threshold: .95,
+        deviation: () => getCurrentValue(schedules.vDeviation),
+        min: .000,
+        max: .999
+    },
+    vTMin: {
+        phase: phases.accelerate,
+        values: time => velocity(time, minMassT),
+        threshold: .95,
+        deviation: () => getCurrentValue(schedules.vDeviation),
+        min: .000,
+        max: .999
+    },
+    vTMax: {
+        phase: phases.accelerate,
+        values: time => velocity(time, maxMassT),
+        threshold: .95,
+        deviation: () => getCurrentValue(schedules.vDeviation),
+        min: .000,
+        max: .999
     }
 };
 
@@ -114,7 +230,10 @@ function getCurrentValue(schedule) {
     }
     currentTime -= schedule.phase.start;
     let values = schedule.values;
-    if (currentTime > values.length) {
+    if (typeof values === 'function') {
+        return gaussian(values(currentTime), schedule);
+    }
+    if (currentTime > values.length - 1) {
         return gaussian(values[values.length - 1], schedule);
     }
     /*global Smooth*/
@@ -143,6 +262,41 @@ function gaussian(mean, schedule) {
     }
     return Math.min(Math.max(mean + deviation*z,min),max);
 }
+
+class Log {
+    constructor(size) {
+        this.entries = [];
+        this.size = size;
+    }
+
+    register(cb) {
+        this.cb = cb;
+    }
+
+    log(severity, entry) {
+        if (this.entries.length === this.size) {
+            this.entries.shift();
+        }
+        this.entries.push(severity + ' - ' + entry);
+        if (this.cb) {
+            this.cb();
+        }
+    }
+
+    info(entry) {
+        this.log('INFO', entry)
+    }
+
+    warn(entry) {
+        this.log('WARN', entry)
+    }
+
+    getEntries() {
+        return this.entries;
+    }
+}
+
+let log = new Log(7);
 
 class ElapsedTime extends Component {
     componentDidMount() {
@@ -255,7 +409,9 @@ class Metric extends Component {
     constructor(props) {
         super(props);
         this.state = {
-            value: 0.0
+            value: 0.0,
+            minValue: 0.0,
+            maxValue: 0.0
         };
     }
     componentDidMount() {
@@ -266,41 +422,72 @@ class Metric extends Component {
     }
 
     tick() {
-        this.setState({value: getCurrentValue(this.props.schedule)});
+        if (this.props.schedule) {
+            this.setState({value: getCurrentValue(this.props.schedule)});
+        }
+        else if (this.props.minSchedule && this.props.maxSchedule) {
+            this.setState({minValue: getCurrentValue(this.props.minSchedule), maxValue: getCurrentValue(this.props.maxSchedule)});
+        }
     }
 
     componentWillUnmount() {
         clearInterval(this.timerID);
     }
 
-    render() {
-        let value = '-.--';
+    renderMetric(value, schedule, nullString) {
+        let result = {};
+        result.value = nullString;
         if (!isBefore(phases.monitor)) {
-            value = this.state.value.toFixed(2);
+            result.value = value.toFixed(3);
         }
-        let state = 'metric-off';
-        if (this.props.schedule.threshold && this.state.value > this.props.schedule.threshold) {
-            state = 'metric-on';
+        result.state = 'metric-off';
+        if (schedule.threshold && value > schedule.threshold) {
+            result.state = 'metric-on';
         }
-        else if (!this.props.schedule.threshold && !isBefore(this.props.schedule.phase)) {
-            state = 'metric-on';
+        else if (!schedule.threshold && !isBefore(schedule.phase)) {
+            result.state = 'metric-on';
         }
-        else if (isAfter(this.props.schedule.phase) && this.props.schedule.threshold && this.state.value < this.props.schedule.threshold) {
-            state = 'metric-warn';
+        else if (isAfter(schedule.phase) && schedule.threshold && value < schedule.threshold) {
+            result.state = 'metric-warn';
+            log.warn(this.props.title + ' has fallen below acceptable threshold');
         }
-        else if (isDuring(this.props.schedule.phase)) {
-            state = 'metric-starting';
+        else if (isDuring(schedule.phase)) {
+            result.state = 'metric-starting';
         }
-        return (
-            <Grid.Row>
-                <Grid.Column textAlign="left">
-                    {this.props.title}
-                </Grid.Column>
-                <Grid.Column textAlign="right" className={state}>
-                    {value}%
-                </Grid.Column>
-            </Grid.Row>
-        );
+        return result;
+    }
+
+    render() {
+        if (this.props.schedule) {
+            const metric = this.renderMetric(this.state.value, this.props.schedule, '-.----')
+            return (
+                <Grid.Row>
+                    <Grid.Column textAlign="left">
+                        {this.props.title}
+                    </Grid.Column>
+                    <Grid.Column textAlign="right" className={metric.state}>
+                        {metric.value}
+                    </Grid.Column>
+                </Grid.Row>
+            );
+        }
+        else if (this.props.minSchedule && this.props.maxSchedule) {
+            const minMetric = this.renderMetric(this.state.minValue, this.props.minSchedule, '-.--')
+            const maxMetric = this.renderMetric(this.state.maxValue, this.props.maxSchedule, '-.--')
+            return (
+                <Grid.Row>
+                    <Grid.Column textAlign="left">
+                        {this.props.title}
+                    </Grid.Column>
+                    <Grid.Column textAlign="right" className={minMetric.state}>
+                        {minMetric.value}
+                    </Grid.Column>
+                    <Grid.Column textAlign="right" className={maxMetric.state}>
+                        {maxMetric.value}
+                    </Grid.Column>
+                </Grid.Row>
+            );
+        }
     }
 }
 
@@ -335,6 +522,8 @@ class RemoteChat extends Component {
                 video.appendChild(session.video);
                 console.log(session.pc.getRemoteStreams());
                 if (myThis.props.caller) {
+                    // not supported!
+                    //var constantSourceNode = AudioContext.createConstantSource();
                     analyserNode = audioCtx.createAnalyser();
                     analyserNode.fftSize = 256;
                     analyserNode.connect(audioCtx.destination);
@@ -502,6 +691,82 @@ class Radar extends Component {
     }
 }
 
+class AccelerationGraph extends Component {
+    componentDidMount() {
+        let ctx = document.getElementById('accelerationGraph');
+        this.data = [0,0,0,0,0,0];
+        this.colors = ["#000", "#000", "#000", "#000", "#000", "#000"]
+        let dataConfig = {
+            datasets: [
+                {
+                    backgroundColor: this.colors,
+                    borderColor: [
+                        "#000",
+                        "#000",
+                        "#000",
+                        "#000",
+                        "#000",
+                        "#000",
+                    ],
+                    data: this.data
+                },
+            ]
+        };
+        this.graph = new Chart(ctx, {
+            type: 'polarArea',
+            data: dataConfig,
+            options: {
+                legend: {display: false},
+                scale: {
+                    ticks: {display:false, min:0, max:1},
+                    scaleLabel: {display: false}
+                }
+            }
+        });
+
+        this.timerID = setInterval(
+            () => this.tick(),
+            this.props.updateInterval
+        );
+    }
+
+    updateBubble(i, minSchedule, maxSchedule) {
+        this.data[i] = getCurrentValue(maxSchedule);
+        if (isAfter(maxSchedule.phase) && this.data[i] < maxSchedule.threshold) {
+            this.colors[i] = 'red'
+        }
+        else if (isBefore(maxSchedule.phase)) {
+            this.colors[i] = 'grey'
+        }
+        else {
+            this.colors[i] = 'white'
+        }
+    }
+
+    tick() {
+        this.updateBubble(0, schedules.vTMin, schedules.vTMax);
+        this.updateBubble(1, schedules.vBMin, schedules.vBMax);
+        this.updateBubble(2, schedules.vCMin, schedules.vCMax);
+        this.updateBubble(3, schedules.vSMin, schedules.vSMax);
+        this.updateBubble(4, schedules.vDMin, schedules.vDMax);
+        this.updateBubble(5, schedules.vUMin, schedules.vUMax);
+        this.graph.update();
+    }
+
+    componentWillUnmount() {
+        clearInterval(this.timerID);
+    }
+
+    render() {
+        return(
+            <Segment inverted>
+                <Label attached='top'><p>Accelerator</p></Label>
+                <Divider hidden section/>
+                <canvas id="accelerationGraph"></canvas>
+            </Segment>
+        );
+    }}
+
 class AudioHistogram extends Component {
     componentDidMount() {
         let ctx = document.getElementById('audioHistogram');
@@ -569,6 +834,27 @@ class AudioHistogram extends Component {
     }
 }
 
+class Console extends Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            entries: []
+        }
+        this.props.log.register(() => this.setState({entries: this.props.log.getEntries()}));
+    }
+
+    render() {
+        const entries = this.state.entries.map(entry => <p>{entry}</p>)
+        return (
+            <Segment inverted>
+                <Label attached='top'><p>Log</p></Label>
+                <Divider hidden section/>
+                {entries}
+            </Segment>
+        );
+    }
+}
+
 class Phase extends Component {
     constructor(props) {
         super(props);
@@ -586,10 +872,16 @@ class Phase extends Component {
 
     tick() {
         if (isAfter(this.props.phase)) {
+            if (this.state.state === 'starting') {
+                log.info(this.props.name + ' phase completed');
+            }
             this.setState({state: "on"});
             clearInterval(this.timerID);
         }
         else if (!isBefore(this.props.phase)) {
+            if (this.state.state === 'off') {
+                log.info('starting ' + this.props.name + ' phase');
+            }
             this.setState({state: "starting"});
         }
     }
@@ -619,69 +911,25 @@ class Present extends Component {
                         <Radar updateInterval={167}/>
                     </Grid.Column>
                     <Grid.Column width={3}>
+                        <AccelerationGraph updateInterval={251}/>
                     </Grid.Column>
                     <Grid.Column width={5}>
                         <AudioHistogram updateInterval={211}/>
                     </Grid.Column>
-                    <Grid.Column width={5}/>
+                    <Grid.Column width={5}>
+                        <Console log={log}/>
+                    </Grid.Column>
                     <Grid.Column width={2}>
                         <Segment inverted>
                             <Divider inverted horizontal>Acc V<sub>min</sub>/V<sub>max</sub></Divider>
                             <Grid columns="three">
-                                <Grid.Column textAlign="left">
-                                    V<sub>u</sub>
-                                </Grid.Column>
-                                <Grid.Column textAlign="right">
-                                    -.--
-                                </Grid.Column>
-                                <Grid.Column textAlign="right">
-                                    -.--
-                                </Grid.Column>
-                                <Grid.Column textAlign="left">
-                                    V<sub>c</sub>
-                                </Grid.Column>
-                                <Grid.Column textAlign="right">
-                                    -.--
-                                </Grid.Column>
-                                <Grid.Column textAlign="right">
-                                    -.--
-                                </Grid.Column>
-                                <Grid.Column textAlign="left">
-                                    V<sub>t</sub>
-                                </Grid.Column>
-                                <Grid.Column textAlign="right">
-                                    -.--
-                                </Grid.Column>
-                                <Grid.Column textAlign="right">
-                                    -.--
-                                </Grid.Column>
-                                <Grid.Column textAlign="left">
-                                    V<sub>d</sub>
-                                </Grid.Column>
-                                <Grid.Column textAlign="right">
-                                    -.--
-                                </Grid.Column>
-                                <Grid.Column textAlign="right">
-                                    -.--
-                                </Grid.Column>
-                                <Grid.Column textAlign="left">
-                                    V<sub>s</sub>
-                                </Grid.Column>
-                                <Grid.Column textAlign="right">
-                                    -.--
-                                </Grid.Column>
-                                <Grid.Column textAlign="right">
-                                    -.--
-                                </Grid.Column>
-                                <Grid.Column textAlign="left">
-                                    V<sub>b</sub>
-                                </Grid.Column>
-                                <Grid.Column textAlign="right">
-                                    -.--
-                                </Grid.Column>
-                                <Grid.Column textAlign="right">
-                                    -.--
-                                </Grid.Column>
+                                <Metric minSchedule={schedules.vUMin} maxSchedule={schedules.vUMax} title="Vu" updateInterval={223}/>
+                                <Metric minSchedule={schedules.vDMin} maxSchedule={schedules.vDMax} title="Vd" updateInterval={227}/>
+                                <Metric minSchedule={schedules.vSMin} maxSchedule={schedules.vSMax} title="Vs" updateInterval={229}/>
+                                <Metric minSchedule={schedules.vCMin} maxSchedule={schedules.vCMax} title="Vc" updateInterval={233}/>
+                                <Metric minSchedule={schedules.vBMin} maxSchedule={schedules.vBMax} title="Vb" updateInterval={239}/>
+                                <Metric minSchedule={schedules.vTMin} maxSchedule={schedules.vTMax} title="Vt" updateInterval={241}/>
+
                             </Grid>
                             <Divider inverted horizontal>Q<sub>link</sub></Divider>
                             <Grid columns="two">
@@ -702,12 +950,11 @@ class Present extends Component {
                     <Grid.Column width={2}>
                         <ElapsedTime updateInterval={173}/>
                     </Grid.Column>
-                    <Grid.Column width={4}>
+                    <Grid.Column width={6}>
                         <Clock updateInterval={179}/>
                     </Grid.Column>
                     <Phase name="Monitors" phase={phases.monitor}/>
                     <Phase name="Accelerator" phase={phases.accelerate}/>
-                    <Phase name="Entangler" phase={phases.entangle}/>
                     <Phase name="Search" phase={phases.search}/>
                     <Phase name="Link" phase={phases.link}/>
                 </Grid>
