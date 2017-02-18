@@ -197,6 +197,7 @@ let audioCtx = audioCtx = new (window.AudioContext || window.webkitAudioContext)
 let frequency = null;
 let noiseLevel = null;
 let ringModulatorCarrierLevel = null;
+let nonRingModulatorLevel = null;
 let signalGain = null;
 let analyserNode = null;
 
@@ -279,7 +280,7 @@ class Log {
         }
         this.entries.push(severity + ' - ' + entry);
         if (this.cb) {
-            this.cb();
+            this.cb(this.entries);
         }
     }
 
@@ -528,20 +529,24 @@ class RemoteChat extends Component {
                     analyserNode.fftSize = 256;
                     analyserNode.connect(audioCtx.destination);
                     let sourceNode = audioCtx.createMediaStreamSource(session.pc.getRemoteStreams()[0]);
-                    let gainNode = audioCtx.createGain();
+                    let ringModulatorGainNode = audioCtx.createGain();
+                    let nonRingModulatorGainNode = audioCtx.createGain();
                     let ringModulatorCarrier = audioCtx.createOscillator();
                     ringModulatorCarrier.frequency.value = 50;
                     let ringModulatorCarrierGain = audioCtx.createGain();
                     ringModulatorCarrierLevel = ringModulatorCarrierGain.gain;
+                    nonRingModulatorLevel = nonRingModulatorGainNode.gain;
                     ringModulatorCarrier.connect(ringModulatorCarrierGain);
-                    ringModulatorCarrierGain.connect(gainNode.gain);
+                    ringModulatorCarrierGain.connect(ringModulatorGainNode.gain);
                     ringModulatorCarrier.start();
-                    sourceNode.connect(gainNode);
+                    sourceNode.connect(ringModulatorGainNode);
+                    sourceNode.connect(nonRingModulatorGainNode);
                     let biquadFilter = audioCtx.createBiquadFilter();
                     frequency = biquadFilter.frequency
                     biquadFilter.type = "lowpass";
                     biquadFilter.frequency.value = 0;
-                    gainNode.connect(biquadFilter);
+                    ringModulatorGainNode.connect(biquadFilter);
+                    nonRingModulatorGainNode.connect(biquadFilter);
                     let signalGainNode = audioCtx.createGain();
                     signalGain = signalGainNode.gain;
                     biquadFilter.connect(signalGainNode);
@@ -609,6 +614,9 @@ class RemoteChat extends Component {
             }
             if (ringModulatorCarrierLevel) {
                 ringModulatorCarrierLevel.value = getCurrentValue(schedules.shift)*getCurrentValue(schedules.shift)/500;
+            }
+            if (nonRingModulatorLevel) {
+                nonRingModulatorLevel.value = (100 - getCurrentValue(schedules.shiftDeviation))/30;
             }
             if (signalGain) {
                 signalGain.value = getCurrentValue(schedules.strength)/250;
@@ -840,7 +848,11 @@ class Console extends Component {
         this.state = {
             entries: []
         }
-        this.props.log.register(() => this.setState({entries: this.props.log.getEntries()}));
+        this.props.log.register(this.updateEntries);
+    }
+
+    updateEntries = (entries) => {
+        this.setState({entries: entries});
     }
 
     render() {
