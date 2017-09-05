@@ -56,7 +56,7 @@ const schedules = {
         threshold: 65,
         deviation: () => (100 - getCurrentValue(schedules.stability))/5,
         min: .01,
-        max: 99.99
+        max: 79.99
     },
     shift: {
         phase: phases.link,
@@ -450,7 +450,7 @@ class Metric extends Component {
         }
         else if (isAfter(schedule.phase) && schedule.threshold && value < schedule.threshold) {
             result.state = 'metric-warn';
-            log.warn(this.props.title + ' has fallen below acceptable threshold');
+            //log.warn(this.props.title + ' has fallen below acceptable threshold');
         }
         else if (isDuring(schedule.phase)) {
             result.state = 'metric-starting';
@@ -601,7 +601,7 @@ class RemoteChat extends Component {
         }
         if (this.props.caller) {
             const opacity = getCurrentValue(schedules.strength);
-            const blur = 5 - getCurrentValue(schedules.bandwidth)/17;
+            const blur = 5 - getCurrentValue(schedules.bandwidth)/15;
             const greyscale = 100 - getCurrentValue(schedules.bandwidth)/2;
             const hueRotate = getCurrentValue(schedules.shift);
             const contrast = 10 * getCurrentValue(schedules.compression);
@@ -661,6 +661,9 @@ class Radar extends Component {
             type: 'radar',
             data: dataConfig,
             options: {
+                tooltips: {
+                    enabled: false
+                },
                 legend: {display: false},
                 scale: {
                     ticks: {display:false, min:0, max:100},
@@ -724,6 +727,9 @@ class AccelerationGraph extends Component {
             type: 'polarArea',
             data: dataConfig,
             options: {
+                tooltips: {
+                    enabled: false
+                },
                 legend: {display: false},
                 scale: {
                     ticks: {display:false, min:0, max:1},
@@ -741,7 +747,7 @@ class AccelerationGraph extends Component {
     updateBubble(i, minSchedule, maxSchedule) {
         this.data[i] = getCurrentValue(maxSchedule);
         if (isAfter(maxSchedule.phase) && this.data[i] < maxSchedule.threshold) {
-            this.colors[i] = 'red'
+            this.colors[i] = 'yellow'
         }
         else if (isBefore(maxSchedule.phase)) {
             this.colors[i] = 'grey'
@@ -793,6 +799,9 @@ class AudioHistogram extends Component {
             type: 'bar',
             data: dataConfig,
             options: {
+                tooltips: {
+                    enabled: false
+                },
                 legend: {display: false},
                 scales: {
                     xAxes: [{
@@ -885,14 +894,14 @@ class Phase extends Component {
     tick() {
         if (isAfter(this.props.phase)) {
             if (this.state.state === 'starting') {
-                log.info(this.props.name + ' phase completed');
+                //log.info(this.props.name + ' phase completed');
             }
             this.setState({state: "on"});
             clearInterval(this.timerID);
         }
         else if (!isBefore(this.props.phase)) {
             if (this.state.state === 'off') {
-                log.info('starting ' + this.props.name + ' phase');
+                //log.info('starting ' + this.props.name + ' phase');
             }
             this.setState({state: "starting"});
         }

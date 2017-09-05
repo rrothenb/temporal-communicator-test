@@ -6,10 +6,6 @@
     color: white;
 }
 
-.noisey {
-    background-image: url("https://media.giphy.com/media/kjbutNOsKX1Ty/giphy.gif");
-}
-
 .rickey {
     background-image: url("http://lh4.googleusercontent.com/-jnAY7xvXB8g/AAAAAAAAAAI/AAAAAAAAADo/acDi6utgvjM/photo.jpg?sz=257");
 }
@@ -21,10 +17,6 @@
 .video-container {
     width: 475px;
     display: inline-block;
-}
-
-.noisey {
-    background: url("http://us.vp9.tv/info/wp-content/themes/vision/lib/player/projekktor/themes/maccaco/noise.gif");
 }
 
 #root .ui.teensy.statistic>.label,  #root .ui.teensy.statistic>.value {
@@ -111,7 +103,7 @@
 }
 
 #root .grid .column.metric-warn {
-    color: red;
+    color: yellow;
 }
 
 @keyframes blinker { to { opacity: 0; } }
