@@ -126,3 +126,23 @@
 #root .ui.grid>.row {
     padding: 0px;
 }
+
+#root .console p {
+    margin: 0;
+    font-family: "Inconsolata";
+    font-weight: bold;
+}
+
+#root .console .divider {
+    margin-bottom: 1px;
+}
+
+#root .console .segment {
+    margin-top: 12px;
+    margin-bottom: 1px;
+    padding-bottom: 1px;
+}
+
+#root .console {
+    padding-bottom: 5px;
+}
